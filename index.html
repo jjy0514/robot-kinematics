@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>로봇 기구학 연습</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M3 14h10M8 14V8l4-5%22 stroke=%22%23f2b33d%22 stroke-width=%222%22 fill=%22none%22/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main id="viewport">
+    <div id="legend">
+      <span class="x">x</span><span class="y">y</span><span class="z">z</span>
+      <span class="conv" id="legend-conv"></span>
+    </div>
+    <div id="hud"></div>
+    <div id="view-buttons">
+      <button data-view="iso">ISO</button>
+      <button data-view="front">정면(XZ)</button>
+      <button data-view="side">측면(YZ)</button>
+      <button data-view="top">상면(XY)</button>
+    </div>
+  </main>
+
+  <aside id="sidebar">
+    <header>
+      <h1>로봇 기구학 연습</h1>
+      <div class="row">
+        <label>프리셋
+          <select id="preset"></select>
+        </label>
+        <label>DH 규약
+          <select id="convention">
+            <option value="standard">Standard (Spong/Corke)</option>
+            <option value="modified">Modified (Craig)</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>자세 표현
+          <select id="euler"></select>
+        </label>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button data-tab="dh" class="active">DH 파라미터</button>
+      <button data-tab="fk">정기구학</button>
+      <button data-tab="ik">역기구학</button>
+      <button data-tab="quiz">연습문제</button>
+      <button data-tab="view">표시</button>
+    </nav>
+
+    <!-- ===================== DH ===================== -->
+    <section id="tab-dh" class="tab active">
+      <p class="formula" id="dh-formula"></p>
+      <div class="table-wrap">
+        <table id="dh-table">
+          <thead id="dh-head"></thead>
+          <tbody id="dh-body"></tbody>
+        </table>
+      </div>
+      <p class="hint">θ<sub>i</sub> = q<sub>i</sub> + offset. 길이 mm, 각도 deg. 값을 바꾸면 즉시 반영됩니다.</p>
+
+      <h3>툴(플랜지) 변환 <small>T<sub>n</sub><sup>tool</sup></small></h3>
+      <div class="grid6" id="tool-inputs"></div>
+      <p class="hint">회전은 RPY (Rz·Ry·Rx). Standard → Modified 변환 시 마지막 행의 a<sub>n</sub>, α<sub>n</sub> 이 여기로 옮겨집니다.</p>
+
+      <div class="row buttons">
+        <button id="btn-reset-preset">프리셋으로 되돌리기</button>
+        <button id="btn-export">JSON 복사</button>
+        <button id="btn-import">JSON 붙여넣기</button>
+      </div>
+      <div id="dh-msg" class="msg"></div>
+    </section>
+
+    <!-- ===================== FK ===================== -->
+    <section id="tab-fk" class="tab">
+      <h3>관절각 q (deg)</h3>
+      <div id="joint-sliders"></div>
+      <div class="row buttons">
+        <button id="btn-zero">영점 (q=0)</button>
+        <button id="btn-home">홈 자세</button>
+        <button id="btn-random">랜덤 자세</button>
+      </div>
+
+      <div id="fk-result" class="answer">
+        <h3>말단 자세 T<sub>0</sub><sup>end</sup></h3>
+        <div id="fk-pose" class="pose"></div>
+        <div id="fk-matrix"></div>
+        <button class="reveal" id="btn-reveal-fk">정답 보기 (연습문제 진행 중)</button>
+      </div>
+
+      <h3>변환 행렬 단계별 보기</h3>
+      <div class="row">
+        <label>i
+          <select id="step-select"></select>
+        </label>
+      </div>
+      <div class="answer" id="step-wrap">
+        <div class="matrix-pair">
+          <div>
+            <div class="mat-title" id="step-A-title"></div>
+            <div id="step-A"></div>
+          </div>
+          <div>
+            <div class="mat-title" id="step-T-title"></div>
+            <div id="step-T"></div>
+          </div>
+        </div>
+        <p class="hint" id="step-params"></p>
+      </div>
+    </section>
+
+    <!-- ===================== IK ===================== -->
+    <section id="tab-ik" class="tab">
+      <p class="hint">화면의 목표 프레임(<b>t</b>)을 드래그하거나 값을 입력한 뒤 IK를 풀어보세요. 수치해법: Damped Least Squares.</p>
+      <h3>목표 자세</h3>
+      <div class="grid6" id="target-inputs"></div>
+      <div class="row buttons">
+        <button id="btn-target-from-current">현재 말단을 목표로</button>
+        <button id="btn-solve" class="primary">IK 풀기</button>
+      </div>
+      <div class="row checks">
+        <label><input type="checkbox" id="ik-realtime" /> 드래그 중 실시간 IK</label>
+        <label><input type="checkbox" id="ik-limits" checked /> 관절 한계 적용</label>
+        <label><input type="checkbox" id="ik-animate" checked /> 애니메이션</label>
+      </div>
+      <div class="row">
+        <label>기즈모
+          <select id="gizmo-mode">
+            <option value="translate">이동</option>
+            <option value="rotate">회전</option>
+            <option value="off">숨김</option>
+          </select>
+        </label>
+        <label>기즈모 좌표계
+          <select id="gizmo-space">
+            <option value="world">World</option>
+            <option value="local">Local</option>
+          </select>
+        </label>
+      </div>
+      <div id="ik-result" class="msg"></div>
+    </section>
+
+    <!-- ===================== QUIZ ===================== -->
+    <section id="tab-quiz" class="tab">
+      <div class="card">
+        <h3>① 정기구학 문제</h3>
+        <p class="hint">주어진 관절각에서 말단 위치를 손으로(또는 코드로) 계산해 입력하세요. 진행 중에는 FK 결과가 가려집니다.</p>
+        <button id="quiz-fk-new" class="primary">새 문제</button>
+        <div id="quiz-fk-q" class="quiz-q"></div>
+        <div class="grid3" id="quiz-fk-inputs"></div>
+        <div class="row buttons">
+          <button id="quiz-fk-check">채점 (허용오차 1 mm)</button>
+          <button id="quiz-fk-end">문제 종료</button>
+        </div>
+        <div id="quiz-fk-msg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>② 역기구학 문제</h3>
+        <p class="hint">목표 자세가 주어집니다. 관절각을 구해 입력하세요. 해는 여러 개일 수 있으며, 어떤 해든 목표에 도달하면 정답입니다.</p>
+        <button id="quiz-ik-new" class="primary">새 문제</button>
+        <div id="quiz-ik-target" class="quiz-q"></div>
+        <div class="grid6" id="quiz-ik-inputs"></div>
+        <div class="row buttons">
+          <button id="quiz-ik-check">적용 & 채점</button>
+          <button id="quiz-ik-show">정답 예시 보기</button>
+        </div>
+        <div id="quiz-ik-msg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW ===================== -->
+    <section id="tab-view" class="tab">
+      <h3>좌표계 표시</h3>
+      <div id="frame-toggles" class="row checks"></div>
+      <div class="row checks">
+        <label><input type="checkbox" id="show-labels" checked /> 축 이름표</label>
+        <label><input type="checkbox" id="show-joint-axes" checked /> 관절축(z) 연장선</label>
+        <label><input type="checkbox" id="show-dh-segments" /> DH 거리(d, a) 색 구분</label>
+        <label><input type="checkbox" id="show-target" checked /> 목표 프레임</label>
+        <label><input type="checkbox" id="show-grid" checked /> 바닥 그리드</label>
+      </div>
+      <label class="slider-label">축 길이 <input type="range" id="axis-length" min="0.3" max="3" step="0.05" value="1" /></label>
+      <label class="slider-label">링크 불투명도 <input type="range" id="link-opacity" min="0.1" max="1" step="0.05" value="0.75" /></label>
+      <p class="hint">빨강 = x, 초록 = y, 파랑 = z. Standard DH 에서 관절 i 는 z<sub>i-1</sub> 축, Modified DH 에서는 z<sub>i</sub> 축을 따라 회전합니다.
+        "DH 거리 색 구분"을 켜면 d 방향(z를 따라) 구간은 파랑, a 방향(x를 따라) 구간은 빨강으로 표시됩니다.</p>
+    </section>
+  </aside>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
