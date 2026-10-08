@@ -162,25 +162,52 @@ button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--
   .tab { overflow: visible; }
 }
 
-/* ================= 왼쪽 풀이 과정 패널 ================= */
-#solution {
-  order: -1;
-  width: 440px; min-width: 300px; max-width: 60vw;
-  background: var(--panel); border-right: 1px solid var(--border);
-  display: flex; flex-direction: column; overflow: hidden;
-  resize: horizontal;
+/* ================= 페이지 탭 (왼쪽 내비게이션) ================= */
+#app-nav {
+  width: 76px; flex: none;
+  background: #101318; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 6px;
 }
-#solution.collapsed { display: none; }
-#solution header { padding: 12px 14px 0; border-bottom: 1px solid var(--border); }
-#solution h2 { font-size: 16px; margin: 0 0 6px; }
-.sol-tabs { display: flex; }
+#app-nav button {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 10px 2px; color: var(--muted); font-size: 11.5px;
+}
+#app-nav button:hover { color: var(--text); border-color: var(--border); }
+#app-nav button.active { color: var(--accent); background: rgba(242, 179, 61, .1); border-color: rgba(242, 179, 61, .35); }
+#app-nav svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#app-nav svg circle { fill: currentColor; stroke: none; }
+
+.page { display: none; flex: 1; min-width: 0; }
+.page.active { display: flex; }
+#page-modeling { flex-direction: row; }
+
+/* ================= 풀이 과정 페이지 ================= */
+#page-solution { flex-direction: column; overflow: hidden; background: var(--bg); }
+.sol-page-inner { max-width: 1060px; margin: 0 auto; padding: 0 28px; }
+.sol-page-head { background: var(--panel); border-bottom: 1px solid var(--border); padding-top: 16px; }
+.sol-page-head h2 { font-size: 19px; margin: 0 0 2px; }
+.sol-tabs { display: flex; margin-top: 8px; }
 .sol-tabs button {
   background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
-  padding: 8px 10px; color: var(--muted);
+  padding: 10px 14px; color: var(--muted); font-size: 14px;
 }
 .sol-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
-.sol-content { flex: 1; overflow-y: auto; padding: 4px 14px 30px; }
+.sol-scroll-area { flex: 1; overflow-y: auto; padding-bottom: 40px; }
+.sol-content { font-size: 14.5px; }
 
+.sol-summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;
+  margin: 18px 0 6px;
+}
+.sol-summary .card { margin: 0; padding: 10px 14px; }
+.sol-summary .card h5 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.sol-summary .card .v { font: 13px var(--mono); line-height: 1.6; }
+.sol-summary .card button { margin-top: 8px; }
+.sol-pair { display: flex; flex-wrap: wrap; gap: 6px 28px; align-items: center; }
+.sol-pair > * { min-width: 0; max-width: 100%; }
+#page-solution .sol-sec { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 4px 18px 14px; margin: 14px 0; }
+#page-solution .sol-sec h4 { font-size: 15px; }
 .sol-sec { border-bottom: 1px dashed var(--border); padding: 4px 0 10px; }
 .sol-sec h4 { color: var(--accent); font-size: 13.5px; margin: 12px 0 6px; }
 .sol-note { color: var(--muted); font-size: 12.5px; margin: 6px 0; }
@@ -216,8 +243,12 @@ button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--
 .sol-branch label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 
 @media (max-width: 860px) {
-  #solution { order: 2; width: 100%; max-width: none; border-right: none; border-top: 1px solid var(--border); overflow: visible; resize: none; }
-  .sol-content { overflow: visible; }
+  #app-nav { width: 100%; flex-direction: row; justify-content: center; padding: 6px; border-right: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+  #app-nav button { flex-direction: row; padding: 6px 14px; font-size: 13px; }
+  #page-modeling { flex-direction: column; }
+  #page-solution { overflow: visible; }
+  .sol-scroll-area { overflow: visible; }
+  .sol-page-inner { padding: 0 14px; }
 }
 
 /* 프레임별 표시 + 축 길이 */

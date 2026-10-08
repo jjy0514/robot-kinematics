@@ -1,4 +1,4 @@
-// 왼쪽 "풀이 과정" 패널: FK / IK(해석해) / IK(수치해) 의 단계별 계산을 수식으로 보여준다
+// "풀이 과정" 페이지: FK / IK(해석해) / IK(수치해) 의 단계별 계산을 수식으로 보여준다
 import * as K from './kinematics.js';
 
 // KaTeX 는 동적 로드 (CDN 실패 시에도 앱은 동작하도록)
@@ -75,10 +75,9 @@ function renderFK(st) {
     const alSym = std ? `\\alpha_${k}` : `\\alpha_${k - 1}`;
     let b = tex(`\\theta_${k} = ${fmt(q[i], 2)}^\\circ + ${r.offset}^\\circ = ${deg(th, 2)},\\quad ${alSym} = ${r.alpha}^\\circ,\\quad ${aSym} = ${r.a},\\quad d_${k} = ${r.d}`);
     b += tex(`c_{\\theta} = ${fmt(Math.cos(th), 4)},\\; s_{\\theta} = ${fmt(Math.sin(th), 4)},\\; c_{\\alpha} = ${fmt(Math.cos(al), 4)},\\; s_{\\alpha} = ${fmt(Math.sin(al), 4)}`);
-    b += tex(`A_${k} = T_${k - 1}^{${k}} = ${m4(fk.A[i])}`);
-    b += k === 1
+    b += `<div class="sol-pair"><div>${tex(`A_${k} = T_${k - 1}^{${k}} = ${m4(fk.A[i])}`)}</div><div>${k === 1
       ? tex(`T_0^{1} = A_1`)
-      : tex(`T_0^{${k}} = T_0^{${k - 1}}\\,A_${k} = ${m4(fk.T[k])}`);
+      : tex(`T_0^{${k}} = T_0^{${k - 1}}\\,A_${k} = ${m4(fk.T[k])}`)}</div></div>`;
     steps += details(`fk-${k}`, `A${sub(k)} 와 T₀${sub(k)} &nbsp;<span class="muted">θ${sub(k)} = ${fmt(q[i] + r.offset, 2)}°</span>`, b);
   });
   h += section('3. 링크별 대입과 누적 곱', steps);
@@ -206,8 +205,7 @@ function renderIKAnalytic(st) {
   // 5. 손목
   const sgn = res.s > 0 ? '' : '-';
   const r36 = det.R36;
-  let b5 = tex(`R_0^3 = ${m3(det.R03)}`);
-  b5 += tex(`R_3^6 = (R_0^3)^T R_0^6 = ${m3(r36)}`);
+  let b5 = `<div class="sol-pair"><div>${tex(`R_0^3 = ${m3(det.R03)}`)}</div><div>${tex(`R_3^6 = (R_0^3)^T R_0^6 = ${m3(r36)}`)}</div></div>`;
   b5 += `<p class="sol-note">${it(`\\alpha_4 = ${R[3].alpha}^\\circ,\\ \\alpha_5 = ${R[4].alpha}^\\circ`)} 이므로 ${it(`R_x(\\alpha_4) R_z(\\theta_5) R_x(\\alpha_5) = R_y(${sgn}\\theta_5)`)}. 따라서 ZYZ 오일러각과 같은 꼴입니다 (${it(`\\beta = ${sgn}\\theta_5`)}).</p>`;
   b5 += tex('R_3^6 = R_z(\\theta_4)\\,R_y(\\beta)\\,R_z(\\theta_6) = \\begin{bmatrix} c_4 c_\\beta c_6 - s_4 s_6 & -c_4 c_\\beta s_6 - s_4 c_6 & c_4 s_\\beta \\\\ s_4 c_\\beta c_6 + c_4 s_6 & -s_4 c_\\beta s_6 + c_4 c_6 & s_4 s_\\beta \\\\ -s_\\beta c_6 & s_\\beta s_6 & c_\\beta \\end{bmatrix}');
   const w = sel.wrist > 0 ? '+' : '-';
@@ -318,6 +316,25 @@ function renderIKNumeric(st) {
   return h;
 }
 
+// ================================================================ 현재 상태 요약
+function renderSummary(st) {
+  const names = K.EULER_TYPES[st.euler].names;
+  const pose = (T) => {
+    const p = K.pos(T);
+    const e = K.rotToEuler(st.euler, K.rot(T)).map((v) => v * K.RAD);
+    return `p = (${p.map((v) => fmt(v, 1)).join(', ')}) mm<br>${names.join('/')} = (${e.map((v) => fmt(v, 2)).join(', ')})°`;
+  };
+  const preset = K.PRESETS[st.presetKey];
+  const robotName = preset && document.querySelector('#preset')?.value !== 'custom' ? preset.name : '사용자 정의';
+  const conv = st.robot.convention === 'standard' ? 'Standard DH' : 'Modified DH (Craig)';
+  return `
+    <div class="card"><h5>로봇</h5><div class="v">${robotName}<br>${conv} · ${st.robot.rows.length}축${K.isIdentityTool(st.robot.tool) ? '' : ' · 툴 있음'}</div>
+      <button data-goto-modeling>모델링에서 수정 →</button></div>
+    <div class="card"><h5>현재 관절각 q (정기구학 입력)</h5><div class="v">${st.q.map((v, i) => `q${sub(i + 1)} ${fmt(v, 2)}°`).join('<br>')}</div></div>
+    <div class="card"><h5>현재 말단 자세</h5><div class="v">${st.quizFk ? '(연습문제 진행 중 — 숨김)' : pose(st.fk.Tend)}</div></div>
+    <div class="card"><h5>IK 목표 자세 (역기구학 입력)</h5><div class="v">${st.targetT ? pose(st.targetT) : '없음'}</div></div>`;
+}
+
 // ================================================================ 패널
 export function createSolutionPanel(root, ctx) {
   let mode = 'fk';
@@ -325,6 +342,8 @@ export function createSolutionPanel(root, ctx) {
 
   const tabs = root.querySelector('.sol-tabs');
   const content = root.querySelector('.sol-content');
+  const summary = root.querySelector('.sol-summary');
+  const scroller = root.querySelector('.sol-scroll-area');
 
   tabs.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     mode = b.dataset.mode;
@@ -341,6 +360,10 @@ export function createSolutionPanel(root, ctx) {
   content.addEventListener('change', (e) => {
     if (e.target.id === 'sol-branch') { selectedBranch = e.target.value; render(); }
     if (e.target.id === 'sol-numeric-start') { numericStart = e.target.value; computeNumeric(ctx.getState()); render(); }
+  });
+
+  summary.addEventListener('click', (e) => {
+    if (e.target.closest('[data-goto-modeling]')) ctx.gotoModeling();
   });
 
   content.addEventListener('click', (e) => {
@@ -362,10 +385,11 @@ export function createSolutionPanel(root, ctx) {
 
   function render() {
     scheduled = false;
-    if (root.classList.contains('collapsed')) return;
+    if (!ctx.isVisible()) return;
     const st = ctx.getState();
     if (!st.fk) return;
-    const scrollTop = content.scrollTop;
+    const scrollTop = scroller.scrollTop;
+    summary.innerHTML = renderSummary(st);
     let html;
     if (mode === 'fk' && st.quizFk) {
       html = '<p class="sol-note warn">정기구학 연습문제를 푸는 중이라 풀이를 가렸습니다.</p><button data-reveal-fk>풀이 보기 (문제 종료)</button>';
@@ -375,7 +399,7 @@ export function createSolutionPanel(root, ctx) {
     else if (mode === 'ika') html = renderIKAnalytic(st);
     else html = renderIKNumeric(st);
     content.innerHTML = html;
-    content.scrollTop = scrollTop;
+    scroller.scrollTop = scrollTop;
   }
 
   function update() {

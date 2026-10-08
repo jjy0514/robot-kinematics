@@ -507,9 +507,11 @@ function resize() {
 new ResizeObserver(resize).observe(viewport);
 
 function loop() {
-  orbit.update();
-  renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
+  if (currentPage === 'modeling') {
+    orbit.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  }
   requestAnimationFrame(loop);
 }
 
@@ -1021,32 +1023,37 @@ function initView() {
   });
 }
 
-// ============================================================ 풀이 과정 패널
-const solutionRoot = $('#solution');
-const solution = createSolutionPanel(solutionRoot, {
+// ============================================================ 페이지 (모델링 / 풀이 과정)
+const PAGES = ['modeling', 'solution'];
+let currentPage = 'modeling';
+
+const solution = createSolutionPanel($('#page-solution'), {
   getState: () => state,
   applyQ: (q) => setQ(q, true),
   revealFk: () => endFkQuiz(),
   revealIk: () => { if (state.quizIk) state.quizIk.revealed = true; solution.update(); },
+  isVisible: () => currentPage === 'solution',
+  gotoModeling: () => showPage('modeling'),
 });
 
-function initSolutionToggle() {
-  const btn = $('#toggle-solution');
-  const apply = (open) => {
-    solutionRoot.classList.toggle('collapsed', !open);
-    btn.textContent = open ? '◀ 풀이' : '▶ 풀이';
-    try { localStorage.setItem('robot-kinematics-solution-open', open ? '1' : '0'); } catch (_) { /* 무시 */ }
-    solution.update();
-  };
-  let open = true;
-  try { open = localStorage.getItem('robot-kinematics-solution-open') !== '0'; } catch (_) { /* 무시 */ }
-  apply(open);
-  btn.addEventListener('click', () => apply(solutionRoot.classList.contains('collapsed')));
+function showPage(page) {
+  if (!PAGES.includes(page)) page = 'modeling';
+  currentPage = page;
+  document.querySelectorAll('#app-nav [data-page]').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
+  PAGES.forEach((p) => $('#page-' + p).classList.toggle('active', p === page));
+  if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
+  if (page === 'modeling') resize();
+  else solution.render();
+}
+
+function initPages() {
+  document.querySelectorAll('#app-nav [data-page]').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
+  window.addEventListener('hashchange', () => showPage(location.hash.slice(1)));
 }
 
 // ============================================================ 시작
 loadState();
-initSolutionToggle();
+initPages();
 initHeader();
 initDhButtons();
 initFkButtons();
@@ -1058,4 +1065,5 @@ setTargetT(state.fk.Tend);
 writeTargetInputs();
 resize();
 setView('iso');
+showPage(location.hash.slice(1) || 'modeling');
 loop();

@@ -17,18 +17,20 @@
   </script>
 </head>
 <body>
-  <aside id="solution">
-    <header>
-      <h2>풀이 과정</h2>
-      <nav class="sol-tabs">
-        <button data-mode="fk" class="active">정기구학</button>
-        <button data-mode="ika">IK 해석해</button>
-        <button data-mode="ikn">IK 수치해</button>
-      </nav>
-    </header>
-    <div class="sol-content"></div>
-  </aside>
+  <!-- ===================== 왼쪽 페이지 탭 ===================== -->
+  <nav id="app-nav" aria-label="페이지">
+    <button data-page="modeling" class="active" title="3D 모델링 / 설정">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M8 20v-6l5-6 5 3M8 14l5-6" /><circle cx="8" cy="14" r="1.6" /><circle cx="13" cy="8" r="1.6" /><circle cx="18" cy="11" r="1.6" /></svg>
+      <span>모델링</span>
+    </button>
+    <button data-page="solution" title="단계별 풀이 과정">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /></svg>
+      <span>풀이 과정</span>
+    </button>
+  </nav>
 
+  <!-- ===================== 모델링 페이지 ===================== -->
+  <div id="page-modeling" class="page active">
   <main id="viewport">
     <div id="legend">
       <span class="x">x</span><span class="y">y</span><span class="z">z</span>
@@ -36,7 +38,6 @@
     </div>
     <div id="hud"></div>
     <div id="view-buttons">
-      <button id="toggle-solution" title="왼쪽 풀이 과정 패널 열기/닫기">◀ 풀이</button>
       <button data-view="iso">ISO</button>
       <button data-view="front">정면(XZ)</button>
       <button data-view="side">측면(YZ)</button>
@@ -216,6 +217,28 @@
         "DH 거리 색 구분"을 켜면 d 방향(z를 따라) 구간은 파랑, a 방향(x를 따라) 구간은 빨강으로 표시됩니다.</p>
     </section>
   </aside>
+  </div>
+
+  <!-- ===================== 풀이 과정 페이지 ===================== -->
+  <div id="page-solution" class="page">
+    <header class="sol-page-head">
+      <div class="sol-page-inner">
+        <h2>풀이 과정</h2>
+        <p class="hint">모델링 탭에서 설정한 로봇(DH 파라미터) · 현재 관절각 · IK 목표 자세로 계산합니다.</p>
+        <nav class="sol-tabs">
+          <button data-mode="fk" class="active">정기구학</button>
+          <button data-mode="ika">역기구학 · 해석해</button>
+          <button data-mode="ikn">역기구학 · 수치해</button>
+        </nav>
+      </div>
+    </header>
+    <div class="sol-scroll-area">
+      <div class="sol-page-inner">
+        <div class="sol-summary"></div>
+        <div class="sol-content"></div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>
