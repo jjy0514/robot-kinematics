@@ -74,6 +74,7 @@ css/style.css
 js/kinematics.js    DH 변환, FK, 자코비안, 수치/해석 IK, 오일러각 변환 (DOM 의존성 없음 → Node 에서 테스트 가능)
 js/main.js          Three.js 렌더링과 UI
 js/solution.js      풀이 과정 페이지 (KaTeX 수식)
+matrix-calc/        Python 4x4 행렬 곱 / 6-DOF 정기구학 계산기 (단계별 출력, 원소 전개) → matrix-calc/README.md
 ```
 
 `kinematics.js` 의 함수는 Node 에서도 바로 쓸 수 있어서, 직접 짠 코드의 결과와 비교하기 좋습니다.
