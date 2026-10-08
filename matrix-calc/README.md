@@ -4,6 +4,7 @@ Python 3 표준 라이브러리만 사용합니다 (numpy 불필요). 웹 앱과
 
 ```
 mat4.py       라이브러리: matmul, chain(누적곱), dh_standard/dh_modified, forward, 출력 포맷
+dh_simple.py  ★ 가장 간단: 코드 안 DH 표 수정 → 0A1 … 5A6, 0A6 출력
 fk.py         DH 표 + q → A_i, T_0^i, T_0^end 단계별 출력
 multiply.py   직접 적은 4x4 행렬들을 순서대로 곱하기 (손계산 검산)
 examples/     tx200.json (웹 앱 JSON 형식), matrices.txt
