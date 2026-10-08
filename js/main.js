@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import * as K from './kinematics.js';
+import { createSolutionPanel } from './solution.js';
 
 // 계산은 mm, 화면은 m 단위
 const S = 0.001;
@@ -29,7 +30,7 @@ const state = {
     linkOpacity: 0.75,
   },
   quizFk: null,          // { q }
-  quizIk: null,          // { q, T }
+  quizIk: null,          // { q, T, revealed }
 };
 
 function loadState() {
@@ -367,6 +368,7 @@ function updatePose() {
   updateHud();
   syncSliders();
   saveState();
+  solution.update();
 }
 
 // ------------------------------------------------------------ 목표 프레임 + 기즈모
@@ -396,6 +398,7 @@ gizmo.addEventListener('objectChange', () => {
   targetObj.updateMatrix();
   state.targetT = fromMatrix4(targetObj.matrix);
   writeTargetInputs();
+  solution.update();
   if ($('#ik-realtime').checked) {
     const res = K.inverse(state.robot, state.targetT, state.q, {
       restarts: 0, maxIter: 60, respectLimits: $('#ik-limits').checked,
@@ -414,6 +417,7 @@ function setTargetT(T) {
   targetObj.position.copy(p);
   targetObj.quaternion.copy(qt);
   targetObj.updateMatrix();
+  solution.update();
 }
 
 // ------------------------------------------------------------ 카메라
@@ -504,7 +508,7 @@ function initHeader() {
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === 'tab-' + b.dataset.tab));
   }));
 
-  document.querySelectorAll('#view-buttons button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  document.querySelectorAll('#view-buttons [data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 }
 
 function loadPreset(key) {
@@ -816,7 +820,7 @@ function initQuiz() {
   $('#quiz-ik-new').addEventListener('click', () => {
     const q = randomQ(0.6, true);
     const T = K.forward(state.robot, q).Tend;
-    state.quizIk = { q, T };
+    state.quizIk = { q, T, revealed: false };
     setTargetT(T);
     writeTargetInputs();
     renderQuizIkTarget();
@@ -835,6 +839,8 @@ function initQuiz() {
 
   $('#quiz-ik-show').addEventListener('click', () => {
     if (!state.quizIk) return;
+    state.quizIk.revealed = true;
+    solution.update();
     const q = state.quizIk.q;
     const el = $('#quiz-ik-msg');
     el.className = 'msg warn';
@@ -869,6 +875,7 @@ function endFkQuiz() {
   state.quizFk = null;
   updateFkPanel();
   updateHud();
+  solution.update();
 }
 
 // ============================================================ UI: 표시
@@ -929,8 +936,32 @@ function initView() {
   });
 }
 
+// ============================================================ 풀이 과정 패널
+const solutionRoot = $('#solution');
+const solution = createSolutionPanel(solutionRoot, {
+  getState: () => state,
+  applyQ: (q) => setQ(q, true),
+  revealFk: () => endFkQuiz(),
+  revealIk: () => { if (state.quizIk) state.quizIk.revealed = true; solution.update(); },
+});
+
+function initSolutionToggle() {
+  const btn = $('#toggle-solution');
+  const apply = (open) => {
+    solutionRoot.classList.toggle('collapsed', !open);
+    btn.textContent = open ? '◀ 풀이' : '▶ 풀이';
+    try { localStorage.setItem('robot-kinematics-solution-open', open ? '1' : '0'); } catch (_) { /* 무시 */ }
+    solution.update();
+  };
+  let open = true;
+  try { open = localStorage.getItem('robot-kinematics-solution-open') !== '0'; } catch (_) { /* 무시 */ }
+  apply(open);
+  btn.addEventListener('click', () => apply(solutionRoot.classList.contains('collapsed')));
+}
+
 // ============================================================ 시작
 loadState();
+initSolutionToggle();
 initHeader();
 initDhButtons();
 initFkButtons();

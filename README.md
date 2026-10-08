@@ -23,6 +23,19 @@ python3 -m http.server 8000
 | **연습문제** | ① 랜덤 관절각 → 말단 위치 계산 (FK 결과는 가려짐) ② 랜덤 목표 자세 → 관절각 계산 후 채점 |
 | **표시** | 좌표계별 표시/숨김, 축 이름표, 관절축(z) 연장선, d/a 구간 색 구분, 링크 투명도 |
 
+### 왼쪽 "풀이 과정" 패널
+
+화면 오른쪽 위 `◀ 풀이` 버튼으로 열고 닫을 수 있습니다. 로봇 자세나 목표를 바꾸면 실시간으로 다시 계산됩니다.
+
+| 모드 | 보여주는 과정 |
+|---|---|
+| **정기구학** | DH 표에 q 대입 → A<sub>i</sub> 일반식 → 링크별 cos/sin 값과 A<sub>i</sub>, 누적곱 T<sub>0</sub><sup>i</sup> → 말단 행렬 → 오일러각 추출식 (atan2 에 숫자 대입) |
+| **IK 해석해** | 구면 손목 분리법(Pieper): 적용 조건 확인 → 툴 제거 → 손목 중심 p<sub>w</sub> → θ₁ (어깨 오프셋 고려) → θ₂·θ₃ (등가 링크 + 코사인 법칙) → R<sub>3</sub><sup>6</sup> 에서 θ₄·θ₅·θ₆ (ZYZ 꼴) → q = θ − offset → 8개 해 표, 클릭해서 적용 |
+| **IK 수치해** | DLS 갱신식 → 첫 반복의 오차 e₀, 자코비안 J(q₀), Δq₀ → 전체 반복 기록 (오차 감소, 재시작) → 결과 |
+
+해석해는 TX200, PUMA 560 처럼 구면 손목 + 평행한 관절 2·3 구조에서 동작합니다. UR5 처럼 조건을 만족하지 않으면 그 이유를 보여줍니다.
+연습문제를 푸는 동안에는 풀이가 가려집니다.
+
 - **DH 규약**: Standard (Spong/Corke) ↔ Modified (Craig) 전환. 전환 시 말단 자세가 동일하도록 파라미터를 자동 변환합니다.
 - **자세 표현**: RPY (Rz·Ry·Rx), Stäubli XYZ (Rx·Ry·Rz), ZYZ 오일러각
 - **프리셋**: Stäubli TX200(근사), PUMA 560, UR5
@@ -51,8 +64,9 @@ q = 0 이면 팔이 수직으로 선 자세(Stäubli 영점과 동일한 형태)
 ```
 index.html          UI 레이아웃
 css/style.css
-js/kinematics.js    DH 변환, FK, 자코비안, IK, 오일러각 변환 (DOM 의존성 없음 → Node 에서 테스트 가능)
+js/kinematics.js    DH 변환, FK, 자코비안, 수치/해석 IK, 오일러각 변환 (DOM 의존성 없음 → Node 에서 테스트 가능)
 js/main.js          Three.js 렌더링과 UI
+js/solution.js      왼쪽 풀이 과정 패널 (KaTeX 수식)
 ```
 
 `kinematics.js` 의 함수는 Node 에서도 바로 쓸 수 있어서, 직접 짠 코드의 결과와 비교하기 좋습니다.
@@ -66,5 +80,4 @@ console.log(fk.Tend);
 
 ## 앞으로 해볼 것
 
-- 구면 손목(spherical wrist) 로봇의 해석적 IK (8개 해 표시)
 - 자코비안 / 특이점(singularity) 시각화
