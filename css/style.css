@@ -219,3 +219,10 @@ button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--
   #solution { order: 2; width: 100%; max-width: none; border-right: none; border-top: 1px solid var(--border); overflow: visible; resize: none; }
   .sol-content { overflow: visible; }
 }
+
+/* 프레임별 표시 + 축 길이 */
+.frame-row { display: grid; grid-template-columns: 74px 1fr 48px 64px; gap: 8px; align-items: center; margin: 3px 0; }
+.frame-row label { display: flex; align-items: center; gap: 6px; font: 600 13px var(--mono); }
+.frame-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.frame-row .val { font: 12px var(--mono); text-align: right; }
+.frame-row .auto { font: 11px var(--mono); color: var(--accent); }

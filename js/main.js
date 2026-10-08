@@ -27,6 +27,8 @@ const state = {
     showTarget: true,
     showGrid: true,
     axisScale: 1,
+    frameScale: {},      // 프레임별 축 길이 배율 { '0': 1, ..., tool: 1 }
+    autoSpread: true,    // 원점이 겹치는 좌표계는 자동으로 길이를 다르게
     linkOpacity: 0.75,
   },
   quizFk: null,          // { q }
@@ -188,35 +190,50 @@ function makeLabel(html, cls) {
 }
 
 // 좌표축 (x 빨강, y 초록, z 파랑) + 이름표
-function makeAxes(len, sub, { target = false } = {}) {
+// thick: 굵기 기준 길이(전역 축 길이), userData.setLength(len) 로 굵기는 그대로 두고 길이만 바꾼다
+function makeAxes(thick, sub, { target = false } = {}) {
   const g = new THREE.Group();
   g.userData.labels = [];
-  const shaftR = len * 0.022;
-  const headLen = len * 0.2;
-  const headR = len * 0.065;
+  const shaftR = thick * 0.022;
+  const headLen = thick * 0.2;
+  const headR = thick * 0.065;
   const dirs = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+  const parts = [];
   for (const ax of ['x', 'y', 'z']) {
     const mat = new THREE.MeshBasicMaterial({
       color: axisColors[ax], depthTest: false, transparent: true, opacity: target ? 0.65 : 1,
     });
     const d = dirs[ax];
     const shaft = new THREE.Mesh(unitCyl, mat);
-    placeSegment(shaft, new THREE.Vector3(), d.clone().multiplyScalar(len - headLen), shaftR);
     const head = new THREE.Mesh(unitCone, mat);
     head.scale.set(headR, headLen, headR);
-    head.position.copy(d).multiplyScalar(len - headLen / 2);
     head.quaternion.setFromUnitVectors(Y_UP, d);
     shaft.renderOrder = head.renderOrder = 10;
     g.add(shaft, head);
     const lbl = makeLabel(`${ax}<sub>${sub}</sub>`, `axis-label ${ax}`);
-    lbl.position.copy(d).multiplyScalar(len * 1.12);
     g.add(lbl);
     g.userData.labels.push(lbl);
+    parts.push({ d, shaft, head, lbl });
   }
   const fl = makeLabel(`{${sub}}`, `frame-label${target ? ' target' : ''}`);
-  fl.position.set(-len * 0.12, -len * 0.12, -len * 0.12);
   g.add(fl);
   g.userData.labels.push(fl);
+
+  g.userData.length = null;
+  g.userData.setLength = (len) => {
+    if (g.userData.length === len) return;
+    g.userData.length = len;
+    const hl = Math.min(headLen, len * 0.4);
+    for (const { d, shaft, head, lbl } of parts) {
+      placeSegment(shaft, new THREE.Vector3(), d.clone().multiplyScalar(len - hl), shaftR);
+      head.scale.set(headR, hl, headR);
+      head.position.copy(d).multiplyScalar(len - hl / 2);
+      lbl.position.copy(d).multiplyScalar(len + thick * 0.12);
+    }
+    // 프레임 이름표도 길이에 비례해서 떨어뜨려 겹친 프레임끼리 구분되게
+    fl.position.set(-len * 0.12, -len * 0.12, -len * 0.12);
+  };
+  g.userData.setLength(thick);
   return g;
 }
 
@@ -319,6 +336,49 @@ function buildRobotVisual() {
   applyViewToggles();
 }
 
+// ------------------------------------------------------------ 축 길이 (프레임별 배율 × 자동 분리)
+const frameKeys = () => [...Array(n() + 1).keys()].map(String).concat('tool');
+const frameObj = (key) => (key === 'tool' ? vis.toolFrame : vis.frames[+key]);
+const frameShown = (key) => (key === 'tool'
+  ? state.view.showTool && !K.isIdentityTool(state.robot.tool)
+  : state.view.showFrames[+key] !== false);
+
+// 원점이 (거의) 같은 위치에 있는 보이는 좌표계끼리 묶어 묶음 안 순서(rank)를 매긴다
+//   autoSpread 이면 길이를 1×, 1.5×, 2× … 로, 이름표 {k} 는 항상 세로로 엇갈리게
+function overlapRanks() {
+  const rank = {};
+  for (const k of frameKeys()) rank[k] = 0;
+  if (!state.fk) return rank;
+  const tol = robotSize() / S * 0.01; // 로봇 크기의 1% (mm)
+  const pts = frameKeys().filter(frameShown).map((k) => ({
+    k, p: K.pos(k === 'tool' ? state.fk.Tend : state.fk.T[+k]),
+  }));
+  const groups = [];
+  for (const it of pts) {
+    const g = groups.find((gr) => Math.hypot(...gr[0].p.map((v, i) => v - it.p[i])) < tol);
+    if (g) g.push(it); else groups.push([it]);
+  }
+  for (const g of groups) g.forEach((it, r) => { rank[it.k] = r; });
+  return rank;
+}
+
+function applyAxisLengths() {
+  if (!vis.root) return;
+  const base = vis.L * 0.11 * state.view.axisScale;
+  const rank = overlapRanks();
+  const auto = {};
+  for (const k of frameKeys()) {
+    auto[k] = state.view.autoSpread ? 1 + 0.5 * rank[k] : 1;
+    const user = state.view.frameScale[k] ?? 1;
+    const f = frameObj(k);
+    f.userData.setLength(base * user * auto[k]);
+    const fl = f.userData.labels[f.userData.labels.length - 1];
+    fl.element.style.marginTop = `${rank[k] * 1.5}em`; // CSS2DRenderer 가 transform 을 쓰므로 margin 으로 이동
+    const tag = document.querySelector(`#frame-toggles [data-auto="${k}"]`);
+    if (tag) tag.textContent = auto[k] !== 1 ? `자동 ×${auto[k].toFixed(1)}` : '';
+  }
+}
+
 function updatePose() {
   const fk = K.forward(state.robot, state.q);
   state.fk = fk;
@@ -362,6 +422,7 @@ function updatePose() {
 
   for (let k = 0; k <= n(); k++) vis.frames[k].matrix.copy(toMatrix4(T[k]));
   vis.toolFrame.matrix.copy(toMatrix4(fk.Tend));
+  applyAxisLengths();
   vis.gripper.matrix.copy(toMatrix4(fk.Tend));
 
   updateFkPanel();
@@ -883,23 +944,46 @@ function buildFrameToggles() {
   const wrap = $('#frame-toggles');
   const count = n() + 1;
   if (state.view.showFrames.length !== count) state.view.showFrames = Array(count).fill(true);
-  const items = state.view.showFrames.map((on, k) =>
-    `<label><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}> {${k}}</label>`);
-  if (!K.isIdentityTool(state.robot.tool)) items.push(`<label><input type="checkbox" data-k="tool" ${state.view.showTool ? 'checked' : ''}> {tool}</label>`);
-  wrap.innerHTML = items.join('') + '<button id="frames-all">전체</button><button id="frames-none">없음</button>';
-  wrap.querySelectorAll('input').forEach((inp) => inp.addEventListener('change', () => {
+  const keys = frameKeys().filter((k) => k !== 'tool' || !K.isIdentityTool(state.robot.tool));
+  wrap.innerHTML = keys.map((k) => {
+    const on = k === 'tool' ? state.view.showTool : state.view.showFrames[+k];
+    const sc = state.view.frameScale[k] ?? 1;
+    return `<div class="frame-row">
+      <label><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}> {${k}}</label>
+      <input type="range" data-len="${k}" min="0.2" max="4" step="0.05" value="${sc}" title="{${k}} 축 길이 배율">
+      <span class="val" data-val="${k}">${sc.toFixed(2)}×</span>
+      <span class="auto" data-auto="${k}"></span>
+    </div>`;
+  }).join('') + `<div class="row buttons">
+      <button id="frames-all">전체 표시</button><button id="frames-none">모두 숨김</button><button id="frames-len-reset">길이 초기화</button>
+    </div>`;
+  wrap.querySelectorAll('input[type=checkbox]').forEach((inp) => inp.addEventListener('change', () => {
     if (inp.dataset.k === 'tool') state.view.showTool = inp.checked;
     else state.view.showFrames[+inp.dataset.k] = inp.checked;
     applyViewToggles();
+    applyAxisLengths();
+  }));
+  wrap.querySelectorAll('input[type=range]').forEach((inp) => inp.addEventListener('input', () => {
+    const k = inp.dataset.len;
+    state.view.frameScale[k] = parseFloat(inp.value);
+    wrap.querySelector(`[data-val="${k}"]`).textContent = `${state.view.frameScale[k].toFixed(2)}×`;
+    applyAxisLengths();
   }));
   const setAll = (v) => {
     state.view.showFrames.fill(v);
     state.view.showTool = v;
     buildFrameToggles();
     applyViewToggles();
+    applyAxisLengths();
   };
   $('#frames-all').onclick = () => setAll(true);
   $('#frames-none').onclick = () => setAll(false);
+  $('#frames-len-reset').onclick = () => {
+    state.view.frameScale = {};
+    buildFrameToggles();
+    applyAxisLengths();
+  };
+  applyAxisLengths();
 }
 
 function applyViewToggles() {
@@ -924,6 +1008,7 @@ function initView() {
     gizmo.visible = gizmo.enabled = state.view.showTarget && $('#gizmo-mode').value !== 'off';
   });
   bind('#show-grid', 'showGrid');
+  bind('#auto-spread', 'autoSpread', applyAxisLengths);
   $('#axis-length').addEventListener('input', (e) => {
     state.view.axisScale = parseFloat(e.target.value);
     buildRobotVisual();
